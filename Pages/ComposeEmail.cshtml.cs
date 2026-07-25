@@ -1,113 +1,83 @@
+using Final_new.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Data.SqlClient;
 
 namespace Final_new.Pages
 {
     public class ComposeEmailModel : PageModel
     {
-        public EmailInfo emailInfo = new EmailInfo();
-        public String errorMessage = "";
-        public String successMessage = "";
-        public List<EmailInfo> Emails = new List<EmailInfo>();
-
-
+        private readonly DemoDataService _demoData;
         private readonly ILogger<ComposeEmailModel> _logger;
 
-        public ComposeEmailModel(ILogger<ComposeEmailModel> logger)
+        public EmailInfo emailInfo = new EmailInfo();
+        public string errorMessage = "";
+        public string successMessage = "";
+        public List<EmailInfo> Emails = new List<EmailInfo>();
+
+        public ComposeEmailModel(ILogger<ComposeEmailModel> logger, DemoDataService demoData)
         {
             _logger = logger;
+            _demoData = demoData;
         }
 
         public void OnGet()
         {
-            emailInfo.EmailSender = HttpContext.Session.GetString("username");
-        }
-        public void OnPost()
-        {
-
-
-
-
-            emailInfo.EmailSubject = Request.Form["subject"];
-            emailInfo.EmailMessage = Request.Form["message"];
-            emailInfo.EmailDate = DateTime.Now.ToString("yyyy-MM-dd");
-            emailInfo.EmailIsRead = "N"; // Default: Unread
-            emailInfo.EmailSender = HttpContext.Session.GetString("username");
-            emailInfo.EmailReciever = Request.Form["emailreciever"];
-
-
-            ////emailInfo.EmailID = Request.Form["emailid"];
-
-            if (emailInfo.EmailSubject.Length == 0 || emailInfo.EmailReciever.Length == 0 ||
-                emailInfo.EmailMessage.Length == 0 || emailInfo.EmailDate.Length == 0 || emailInfo.EmailIsRead.Length == 0
-                || emailInfo.EmailSender.Length == 0)
+            string? sender = HttpContext.Session.GetString("username");
+            if (string.IsNullOrEmpty(sender))
             {
-                errorMessage = "All the field are required";
-                return;
+                sender = "adminOFSD";
+                HttpContext.Session.SetString("username", sender);
+            }
+            emailInfo.EmailSender = sender;
+        }
+
+        public IActionResult OnPost()
+        {
+            emailInfo.EmailSubject = Request.Form["subject"].ToString();
+            emailInfo.EmailMessage = Request.Form["message"].ToString();
+            emailInfo.EmailDate = DateTime.Now.ToString("yyyy-MM-dd");
+            emailInfo.EmailIsRead = "N";
+            emailInfo.EmailSender = HttpContext.Session.GetString("username") ?? "adminOFSD";
+            emailInfo.EmailReciever = Request.Form["emailreciever"].ToString();
+
+            if (string.IsNullOrWhiteSpace(emailInfo.EmailSubject) ||
+                string.IsNullOrWhiteSpace(emailInfo.EmailReciever) ||
+                string.IsNullOrWhiteSpace(emailInfo.EmailMessage))
+            {
+                errorMessage = "All fields are required.";
+                return Page();
             }
 
             if (emailInfo.EmailMessage.Length > 100)
             {
                 errorMessage = "Email message cannot exceed 100 characters.";
-                return;
+                return Page();
             }
 
-            try
+            // Save to in-memory demo data store
+            _demoData.AddEmail(new DemoEmail
             {
-                String connectionString = "Server = tcp:finalprojectofsd.database.windows.net,1433; Initial Catalog = FinalProjectOFSD; Persist Security Info = False; User ID = adminOFSD; Password =ofsd_1234 ; MultipleActiveResultSets = False; Encrypt = True; TrustServerCertificate = False; Connection Timeout = 30";
+                EmailSubject = emailInfo.EmailSubject,
+                EmailMessage = emailInfo.EmailMessage,
+                EmailDate = emailInfo.EmailDate,
+                EmailIsRead = emailInfo.EmailIsRead,
+                EmailSender = emailInfo.EmailSender,
+                EmailReceiver = emailInfo.EmailReciever
+            });
 
-                using (SqlConnection connection = new SqlConnection(connectionString))
-                {
-
-                    connection.Open();
-
-                    String sql = "INSERT INTO Emails " +
-                                "( EmailSubject, EmailMessage, EmailDate, EmailIsRead, EmailSender, EmailReciever) VALUES " +
-                                "( @subject, @message, @date, @isread, @sender, @emailreciever );";
-
-                    using (SqlCommand command = new SqlCommand(sql, connection))
-                    {
-                        
-                        command.Parameters.AddWithValue("@subject", emailInfo.EmailSubject);
-                        command.Parameters.AddWithValue("@message", emailInfo.EmailMessage);
-                        command.Parameters.AddWithValue("@date", emailInfo.EmailDate);
-                        command.Parameters.AddWithValue("@isread", emailInfo.EmailIsRead);
-                        command.Parameters.AddWithValue("@sender", emailInfo.EmailSender);
-                        command.Parameters.AddWithValue("@emailreciever", emailInfo.EmailReciever);
-
-                        command.ExecuteNonQuery();
-                    }
-
-
-                }
-            }
-            catch (Exception ex)
-            {
-                errorMessage = ex.Message;
-                return;
-            }
-
-            //emailInfo.EmailID = "";
-            emailInfo.EmailSubject = "";
-            emailInfo.EmailMessage = "";
-            emailInfo.EmailDate = "";
-            emailInfo.EmailIsRead = "";
-            emailInfo.EmailSender = "";
-            emailInfo.EmailReciever = "";
-            successMessage = "New Email was sent.";
-
-            Response.Redirect("SentEmail");
+            successMessage = "New Email was sent successfully (Demo Mode)!";
+            return RedirectToPage("/SentEmail");
         }
     }
+
     public class EmailInfo
     {
-        public String EmailID;
-        public String EmailSubject;
-        public String EmailMessage;
-        public String EmailDate;
-        public String EmailIsRead;
-        public String EmailSender;
-        public String EmailReciever;
+        public string EmailID = string.Empty;
+        public string EmailSubject = string.Empty;
+        public string EmailMessage = string.Empty;
+        public string EmailDate = string.Empty;
+        public string EmailIsRead = string.Empty;
+        public string EmailSender = string.Empty;
+        public string EmailReciever = string.Empty;
     }
 }

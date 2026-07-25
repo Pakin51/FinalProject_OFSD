@@ -1,80 +1,57 @@
+using Final_new.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Data.SqlClient;
 
 namespace Final_new.Pages
 {
     public class ReadEmailModel : PageModel
     {
-        public EmailInfo EmailDetails { get; set; }
+        private readonly DemoDataService _demoData;
 
-        public void OnGet(String emailId)
+        public ReadEmailModel(DemoDataService demoData)
         {
-            if (!String.IsNullOrEmpty(emailId))
+            _demoData = demoData;
+        }
+
+        public EmailInfoDetails? EmailDetails { get; set; }
+
+        public void OnGet(string emailId)
+        {
+            if (string.IsNullOrEmpty(emailId))
+            {
+                emailId = TempData["EmailID"]?.ToString() ?? string.Empty;
+            }
+
+            if (!string.IsNullOrEmpty(emailId))
             {
                 FetchEmailDetails(emailId);
             }
         }
-        private void FetchEmailDetails(String emailId)
+
+        private void FetchEmailDetails(string emailId)
         {
-            try
+            var email = _demoData.GetEmailById(emailId);
+            if (email != null)
             {
-                
-                try
+                _demoData.MarkAsRead(emailId);
+                EmailDetails = new EmailInfoDetails
                 {
-                    String connectionString = "Server=tcp:finalprojectofsd.database.windows.net,1433;Initial Catalog=FinalProjectOFSD;Persist Security Info=False;User ID=adminOFSD;Password=ofsd_1234;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30";
-
-                    using (SqlConnection connection = new SqlConnection(connectionString))
-                    {
-                        connection.Open();
-                        String sql = @"
-                                SELECT EmailID, EmailSubject, EmailSender, EmailDate, EmailMessage 
-                                FROM Emails 
-                                WHERE EmailID = @EmailID
-                                ORDER BY EmailSubject, EmailSender, EmailDate, EmailMessage";
-
-                        using (SqlCommand command = new SqlCommand(sql, connection))
-                        {
-                            command.Parameters.AddWithValue("@EmailID", emailId);
-
-                            using (SqlDataReader reader = command.ExecuteReader())
-                            {
-                                if (reader.Read())
-                                {
-                                    EmailDetails = new EmailInfo
-                                    {
-                                        EmailID = reader["EmailID"].ToString(),
-                                        EmailSubject = reader["EmailSubject"].ToString(),
-                                        EmailSender = reader["EmailSender"].ToString(),
-                                        EmailDate = reader["EmailDate"].ToString(),
-                                        EmailMessage = reader["EmailMessage"].ToString()
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-
-                catch (Exception ex)
-                {
-                    
-                }
+                    EmailID = email.EmailID,
+                    EmailSubject = email.EmailSubject,
+                    EmailSender = email.EmailSender,
+                    EmailDate = email.EmailDate,
+                    EmailMessage = email.EmailMessage
+                };
             }
-            catch (Exception ex)
-            {
-                
-            }
+        }
 
+        public class EmailInfoDetails
+        {
+            public string EmailID { get; set; } = string.Empty;
+            public string EmailSubject { get; set; } = string.Empty;
+            public string EmailSender { get; set; } = string.Empty;
+            public string EmailDate { get; set; } = string.Empty;
+            public string EmailMessage { get; set; } = string.Empty;
         }
     }
-
 }
-        public class EmailInfo
-        {
-            public String EmailID { get; set; }
-            public String EmailSubject { get; set; }
-            public String EmailSender { get; set; }
-            public String EmailDate { get; set; }
-            public String EmailMessage { get; set; }
-        }
-    

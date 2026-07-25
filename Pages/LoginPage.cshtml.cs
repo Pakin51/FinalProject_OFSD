@@ -1,67 +1,54 @@
+using Final_new.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Data.SqlClient;
 
 namespace Final_new.Pages
 {
     public class LoginPageModel : PageModel
     {
-        [BindProperty]
-        public string Username { get; set; }
+        private readonly DemoDataService _demoData;
+
+        public LoginPageModel(DemoDataService demoData)
+        {
+            _demoData = demoData;
+        }
 
         [BindProperty]
-        public string Password { get; set; }
+        public string Username { get; set; } = string.Empty;
+
+        [BindProperty]
+        public string Password { get; set; } = string.Empty;
 
         public string errorMessage = "";
         public string successMessage = "";
+
         public void OnGet()
         {
+            // Default demo username suggestion
+            if (string.IsNullOrEmpty(Username))
+            {
+                Username = "";
+            }
         }
 
-        public void OnPost()
+        public IActionResult OnPost()
         {
-
-            if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+            if (string.IsNullOrWhiteSpace(Username))
             {
-                errorMessage = "Username and password are required.";
-                return;
-            }
-            try
-            {
-                String connectionString = "Server = tcp:finalprojectofsd.database.windows.net,1433; Initial Catalog = FinalProjectOFSD; Persist Security Info = False; User ID = adminOFSD; Password = ofsd_1234; MultipleActiveResultSets = False; Encrypt = True; TrustServerCertificate = False; Connection Timeout = 30";
-
-
-                using (SqlConnection connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string sql = "SELECT COUNT(*) FROM loginTable WHERE username = @username AND pwd = @password";
-                    using (SqlCommand command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@username", Username);
-                        command.Parameters.AddWithValue("@password", Password);
-
-                        int count = (int)command.ExecuteScalar();
-                        if (count > 0)
-                        {
-                            HttpContext.Session.SetString("username", Username);
-                            successMessage = "Login successful!";
-                            Response.Redirect("/ViewEmail"); 
-                        }
-                        else
-                        {
-                            
-                            errorMessage = "Invalid username or password.";
-                        }
-                    }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                errorMessage = ex.Message;
+                errorMessage = "Username is required.";
+                return Page();
             }
 
+            // Interactive demo validation
+            if (_demoData.ValidateUser(Username, Password))
+            {
+                HttpContext.Session.SetString("username", Username);
+                successMessage = "Login successful (Demo Mode)!";
+                return RedirectToPage("/ViewEmail");
+            }
 
+            errorMessage = "Invalid login attempt.";
+            return Page();
         }
     }
 }
